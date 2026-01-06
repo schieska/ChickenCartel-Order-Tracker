@@ -76,9 +76,16 @@ SERVICE_CHECK_EMAIL_NOW_SCHEMA = vol.Schema(
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up ChickenCartel Order Tracker from a config entry."""
-    order_id = entry.data[CONF_ORDER_ID]
+    order_id = entry.data.get(CONF_ORDER_ID, "pending-email-detection")
     polling_interval = entry.data.get(CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL)
     email_enabled = entry.data.get(CONF_EMAIL_ENABLED, False)
+
+    # If order ID is pending, use a placeholder that won't cause API errors
+    # The email monitor will update it when an order is found
+    if order_id == "pending-email-detection":
+        # Use a dummy UUID format that won't match any real order
+        # This allows the coordinator to initialize without errors
+        order_id = "00000000-0000-0000-0000-000000000000"
 
     coordinator = ChickenCartelCoordinator(
         hass,
@@ -86,8 +93,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         polling_interval=polling_interval,
     )
 
-    # Fetch initial data
-    await coordinator.async_config_entry_first_refresh()
+    # Only fetch initial data if we have a real order ID
+    if order_id != "00000000-0000-0000-0000-000000000000":
+        await coordinator.async_config_entry_first_refresh()
+    else:
+        # Set initial data to indicate waiting for email
+        coordinator.async_set_updated_data({
+            "order_id": "pending-email-detection",
+            "order_harmony_status": None,
+            "status": "unknown",
+            "error": "Waiting for email to detect order ID",
+        })
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator

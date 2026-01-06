@@ -56,54 +56,14 @@ class ChickenCartelConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle the initial step."""
-        errors: dict[str, str] = {}
-
-        if user_input is not None:
-            order_id = user_input[CONF_ORDER_ID].strip()
-            email_enabled = user_input.get(CONF_EMAIL_ENABLED, False)
-
-            # Validate order ID format
-            if not validate_order_id(order_id):
-                errors["base"] = "invalid_order_id"
-            elif email_enabled:
-                # If email is enabled, move to email configuration step
-                self._email_data = {
-                    CONF_ORDER_ID: order_id.lower(),
-                    CONF_POLLING_INTERVAL: user_input.get(
-                        CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL
-                    ),
-                }
-                return await self.async_step_email()
-            else:
-                # Check if this order is already being tracked
-                await self.async_set_unique_id(order_id.lower())
-                self._abort_if_unique_id_configured()
-
-                return self.async_create_entry(
-                    title=f"Order {order_id[:8]}...",
-                    data={
-                        CONF_ORDER_ID: order_id.lower(),
-                        CONF_POLLING_INTERVAL: user_input.get(
-                            CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL
-                        ),
-                        CONF_EMAIL_ENABLED: False,
-                    },
-                )
-
-        return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_ORDER_ID): str,
-                    vol.Optional(
-                        CONF_POLLING_INTERVAL, default=DEFAULT_POLLING_INTERVAL
-                    ): vol.All(vol.Coerce(int), vol.Range(min=5, max=300)),
-                    vol.Optional(CONF_EMAIL_ENABLED, default=False): bool,
-                }
-            ),
-            errors=errors,
-        )
+        """Handle the initial step - always proceed to email configuration."""
+        # Skip the initial step and go directly to email configuration
+        # Store any optional order ID if provided
+        self._email_data = {
+            CONF_POLLING_INTERVAL: DEFAULT_POLLING_INTERVAL,
+            CONF_ORDER_ID: "pending-email-detection",
+        }
+        return await self.async_step_email()
 
     async def async_step_email(
         self, user_input: dict[str, Any] | None = None
@@ -138,12 +98,23 @@ class ChickenCartelConfigFlow(ConfigFlow, domain=DOMAIN):
                     _LOGGER.error("Email connection test failed: %s", err)
                 else:
                     # Success - create entry
-                    order_id = self._email_data[CONF_ORDER_ID]
-                    await self.async_set_unique_id(order_id.lower())
+                    order_id = self._email_data.get(CONF_ORDER_ID, "pending-email-detection")
+                    
+                    # Use a unique ID based on email username if no order ID yet
+                    if order_id == "pending-email-detection":
+                        unique_id = f"email-{username.lower()}"
+                    else:
+                        unique_id = order_id.lower()
+                    
+                    await self.async_set_unique_id(unique_id)
                     self._abort_if_unique_id_configured()
 
+                    title = "Email Auto-Detect"
+                    if order_id != "pending-email-detection":
+                        title = f"Order {order_id[:8]}... (Email Auto-Detect)"
+
                     return self.async_create_entry(
-                        title=f"Order {order_id[:8]}... (Email Auto-Detect)",
+                        title=title,
                         data={
                             **self._email_data,
                             CONF_EMAIL_ENABLED: True,
@@ -162,6 +133,7 @@ class ChickenCartelConfigFlow(ConfigFlow, domain=DOMAIN):
                         },
                     )
 
+        # Show email configuration form
         return self.async_show_form(
             step_id="email",
             data_schema=vol.Schema(
@@ -183,7 +155,4 @@ class ChickenCartelConfigFlow(ConfigFlow, domain=DOMAIN):
                 }
             ),
             errors=errors,
-            description_placeholders={
-                "order_id": self._email_data.get(CONF_ORDER_ID, ""),
-            },
         )

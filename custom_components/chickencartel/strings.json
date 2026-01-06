@@ -3,19 +3,37 @@
     "step": {
       "user": {
         "title": "ChickenCartel Order Tracker",
-        "description": "Enter your ChickenCartel order ID to start tracking.",
+        "description": "Configure email monitoring to automatically detect order IDs from ChickenCartel emails."
+      },
+      "email": {
+        "title": "Email Configuration",
+        "description": "Configure email monitoring to automatically detect order IDs from ChickenCartel emails.",
         "data": {
-          "order_id": "Order ID (UUID)",
-          "polling_interval": "Polling interval (seconds)"
+          "email_server": "IMAP Server",
+          "email_port": "Port",
+          "email_username": "Email Address",
+          "email_password": "Password",
+          "email_folder": "Folder",
+          "email_check_interval": "Check Interval (seconds)"
         },
         "data_description": {
-          "order_id": "The UUID from your order confirmation",
-          "polling_interval": "How often to check for status updates (5-300 seconds)"
+          "email_server": "IMAP server address (e.g., imap.gmail.com)",
+          "email_port": "IMAP port (usually 993 for SSL)",
+          "email_username": "Your email address",
+          "email_password": "Your email password or app password",
+          "email_folder": "Email folder to monitor (usually INBOX)",
+          "email_check_interval": "How often to check for new emails (30-3600 seconds)"
         }
       }
     },
     "error": {
       "invalid_order_id": "Invalid order ID format. Please enter a valid UUID.",
+      "order_id_required": "Order ID is required when email auto-detection is disabled.",
+      "email_server_required": "Email server is required.",
+      "email_username_required": "Email username is required.",
+      "email_password_required": "Email password is required.",
+      "email_connection_failed": "Failed to connect to email server. Please check your credentials.",
+      "order_id_or_email_required": "Either provide an Order ID or enable Email Auto-Detection.",
       "cannot_connect": "Unable to connect to ChickenCartel API.",
       "unknown": "An unexpected error occurred."
     },
