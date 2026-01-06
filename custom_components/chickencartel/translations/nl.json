@@ -1,0 +1,45 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "ChickenCartel Order Tracker",
+        "description": "Voer je ChickenCartel bestelnummer in om te beginnen met volgen.",
+        "data": {
+          "order_id": "Bestelnummer (UUID)",
+          "polling_interval": "Verversingsinterval (seconden)"
+        },
+        "data_description": {
+          "order_id": "De UUID uit je bestelbevestiging",
+          "polling_interval": "Hoe vaak te controleren op statusupdates (5-300 seconden)"
+        }
+      }
+    },
+    "error": {
+      "invalid_order_id": "Ongeldig bestelnummer formaat. Voer een geldige UUID in.",
+      "cannot_connect": "Kan geen verbinding maken met de ChickenCartel API.",
+      "unknown": "Er is een onverwachte fout opgetreden."
+    },
+    "abort": {
+      "already_configured": "Deze bestelling wordt al gevolgd."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "order_status": {
+        "name": "Bestelstatus",
+        "state": {
+          "failed": "Mislukt",
+          "cancelled": "Geannuleerd",
+          "received": "Ontvangen",
+          "pos": "Bij kassa",
+          "accepted": "Geaccepteerd",
+          "preparing": "In bereiding",
+          "waiting_for_driver": "Wacht op bezorger",
+          "en_route": "Onderweg",
+          "completed": "Bezorgd",
+          "unknown": "Onbekend"
+        }
+      }
+    }
+  }
+}

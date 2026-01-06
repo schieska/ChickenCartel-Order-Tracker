@@ -1,0 +1,6 @@
+# Test dependencies for ChickenCartel Order Tracker
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-homeassistant-custom-component>=0.10.0
+pytest-mock>=3.11.0
+aiohttp>=3.8.0

@@ -1,0 +1,127 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "ChickenCartel Order Tracker",
+        "description": "Enter your ChickenCartel order ID to start tracking.",
+        "data": {
+          "order_id": "Order ID (UUID)",
+          "polling_interval": "Polling interval (seconds)"
+        },
+        "data_description": {
+          "order_id": "The UUID from your order confirmation",
+          "polling_interval": "How often to check for status updates (5-300 seconds)"
+        }
+      }
+    },
+    "error": {
+      "invalid_order_id": "Invalid order ID format. Please enter a valid UUID.",
+      "cannot_connect": "Unable to connect to ChickenCartel API.",
+      "unknown": "An unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This order is already being tracked."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "order_status": {
+        "name": "Order Status",
+        "state": {
+          "failed": "Failed",
+          "cancelled": "Cancelled",
+          "received": "Received",
+          "pos": "At POS",
+          "accepted": "Accepted",
+          "preparing": "Preparing",
+          "waiting_for_driver": "Waiting for driver",
+          "en_route": "En route",
+          "completed": "Completed",
+          "unknown": "Unknown"
+        }
+      }
+    }
+  },
+  "services": {
+    "set_order_id": {
+      "name": "Set Order ID",
+      "description": "Update the order ID being tracked. This will restart polling for the new order.",
+      "fields": {
+        "order_id": {
+          "name": "Order ID",
+          "description": "The new order ID (UUID) to track."
+        },
+        "entity_id": {
+          "name": "Entity ID",
+          "description": "Optional: Specific entity to update. If not provided, all ChickenCartel entities will be updated."
+        }
+      }
+    },
+    "parse_email": {
+      "name": "Parse Email",
+      "description": "Extract order ID from email content and optionally update the tracker automatically.",
+      "fields": {
+        "subject": {
+          "name": "Subject",
+          "description": "Email subject line."
+        },
+        "body": {
+          "name": "Body",
+          "description": "Plain text email body."
+        },
+        "html_body": {
+          "name": "HTML Body",
+          "description": "HTML email body (optional)."
+        },
+        "sender": {
+          "name": "Sender",
+          "description": "Email sender address (optional, helps identify ChickenCartel emails)."
+        },
+        "entity_id": {
+          "name": "Entity ID",
+          "description": "Optional: Specific entity to update. If not provided, all ChickenCartel entities will be updated."
+        },
+        "auto_update": {
+          "name": "Auto Update",
+          "description": "Automatically update the order ID if found (default: true)."
+        }
+      }
+    },
+    "test_email": {
+      "name": "Test Email",
+      "description": "Test email parsing with provided email content. Useful for testing if the parser can extract order IDs from your email format.",
+      "fields": {
+        "subject": {
+          "name": "Subject",
+          "description": "Email subject line (required)."
+        },
+        "body": {
+          "name": "Body",
+          "description": "Plain text email body (optional)."
+        },
+        "html_body": {
+          "name": "HTML Body",
+          "description": "HTML email body (optional)."
+        },
+        "sender": {
+          "name": "Sender",
+          "description": "Email sender address (optional, default: info@dehamburgerij.nl)."
+        },
+        "auto_update": {
+          "name": "Auto Update",
+          "description": "If true, automatically update the order ID if found (default: false)."
+        }
+      }
+    },
+    "check_email_now": {
+      "name": "Check Email Now",
+      "description": "Manually trigger email checking for all configured email monitors. Useful for testing or forcing an immediate check.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity ID",
+          "description": "Optional: Specific entity to check emails for. If not provided, all email monitors will be checked."
+        }
+      }
+    }
+  }
+}

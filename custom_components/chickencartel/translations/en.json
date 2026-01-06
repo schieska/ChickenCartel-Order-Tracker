@@ -1,0 +1,45 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "ChickenCartel Order Tracker",
+        "description": "Enter your ChickenCartel order ID to start tracking.",
+        "data": {
+          "order_id": "Order ID (UUID)",
+          "polling_interval": "Polling interval (seconds)"
+        },
+        "data_description": {
+          "order_id": "The UUID from your order confirmation",
+          "polling_interval": "How often to check for status updates (5-300 seconds)"
+        }
+      }
+    },
+    "error": {
+      "invalid_order_id": "Invalid order ID format. Please enter a valid UUID.",
+      "cannot_connect": "Unable to connect to ChickenCartel API.",
+      "unknown": "An unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This order is already being tracked."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "order_status": {
+        "name": "Order Status",
+        "state": {
+          "failed": "Failed",
+          "cancelled": "Cancelled",
+          "received": "Received",
+          "pos": "At POS",
+          "accepted": "Accepted",
+          "preparing": "Preparing",
+          "waiting_for_driver": "Waiting for driver",
+          "en_route": "En route",
+          "completed": "Completed",
+          "unknown": "Unknown"
+        }
+      }
+    }
+  }
+}
