@@ -32,7 +32,11 @@
       "email_server_required": "Email server is required.",
       "email_username_required": "Email username is required.",
       "email_password_required": "Email password is required.",
-      "email_connection_failed": "Failed to connect to email server. Please check your credentials.",
+      "email_connection_failed": "Failed to connect to email server. Please check your server address, port, and credentials.",
+      "email_connection_timeout": "Connection to email server timed out. Please check your server address and port, and ensure IMAP is enabled.",
+      "email_connection_refused": "Connection to email server was refused. Please check your server address and port.",
+      "email_authentication_failed": "Authentication failed. Please check your email address and password. For Gmail, use an App Password.",
+      "email_ssl_error": "SSL/TLS connection error. Please check your port (use 993 for SSL) and ensure your email provider supports SSL.",
       "order_id_or_email_required": "Either provide an Order ID or enable Email Auto-Detection.",
       "cannot_connect": "Unable to connect to ChickenCartel API.",
       "unknown": "An unexpected error occurred."

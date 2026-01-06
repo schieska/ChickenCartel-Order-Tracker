@@ -84,17 +84,83 @@ class ChickenCartelConfigFlow(ConfigFlow, domain=DOMAIN):
             elif not password:
                 errors[CONF_EMAIL_PASSWORD] = "email_password_required"
             else:
-                # Test email connection
+                # Test email connection and verify ChickenCartel emails can be found
                 try:
                     import aioimaplib
+                    import asyncio
+                    
+                    # Test connection with timeout
                     test_client = aioimaplib.IMAP4_SSL(
                         server, user_input.get(CONF_EMAIL_PORT, DEFAULT_EMAIL_PORT)
                     )
-                    await test_client.wait_hello_from_server()
-                    await test_client.login(username, password)
-                    await test_client.logout()
+                    
+                    # Wait for server hello with timeout
+                    await asyncio.wait_for(
+                        test_client.wait_hello_from_server(),
+                        timeout=10.0
+                    )
+                    
+                    # Test login
+                    await asyncio.wait_for(
+                        test_client.login(username, password),
+                        timeout=10.0
+                    )
+                    
+                    # Test folder access
+                    folder = user_input.get(CONF_EMAIL_FOLDER, DEFAULT_EMAIL_FOLDER)
+                    await asyncio.wait_for(
+                        test_client.select(folder),
+                        timeout=5.0
+                    )
+                    
+                    # Search for emails containing "chickencartel" in headers
+                    # Search in subject, from, and body
+                    search_query = '(OR (SUBJECT "chickencartel") (FROM "chickencartel") (BODY "chickencartel"))'
+                    try:
+                        status, messages = await asyncio.wait_for(
+                            test_client.search(search_query),
+                            timeout=5.0
+                        )
+                        if status == "OK":
+                            email_count = len(messages[0].split()) if messages[0] else 0
+                            _LOGGER.info("Found %d ChickenCartel email(s) in %s", email_count, folder)
+                            if email_count == 0:
+                                # Don't fail, but log a warning - user might not have emails yet
+                                _LOGGER.info("No ChickenCartel emails found yet - this is OK if you haven't received any order confirmations")
+                    except Exception as search_err:
+                        _LOGGER.debug("Email search test failed (non-critical): %s", search_err)
+                        # Don't fail on search - connection is what matters
+                    
+                    # Clean logout
+                    try:
+                        await test_client.logout()
+                    except Exception:
+                        pass  # Ignore logout errors
+                    
+                    _LOGGER.info("Email connection test successful for %s", username)
+                    
+                except asyncio.TimeoutError:
+                    errors["base"] = "email_connection_timeout"
+                    _LOGGER.error("Email connection test timed out for %s", server)
+                except aioimaplib.IMAP4.error as err:
+                    error_msg = str(err)
+                    if "authentication failed" in error_msg.lower() or "invalid credentials" in error_msg.lower():
+                        errors["base"] = "email_authentication_failed"
+                    elif "connection refused" in error_msg.lower():
+                        errors["base"] = "email_connection_refused"
+                    else:
+                        errors["base"] = "email_connection_failed"
+                    _LOGGER.error("Email connection test failed: %s", err)
                 except Exception as err:
-                    errors["base"] = "email_connection_failed"
+                    error_msg = str(err).lower()
+                    if "timeout" in error_msg or "timed out" in error_msg:
+                        errors["base"] = "email_connection_timeout"
+                    elif "connection" in error_msg and "refused" in error_msg:
+                        errors["base"] = "email_connection_refused"
+                    elif "ssl" in error_msg or "certificate" in error_msg:
+                        errors["base"] = "email_ssl_error"
+                    else:
+                        errors["base"] = "email_connection_failed"
                     _LOGGER.error("Email connection test failed: %s", err)
                 else:
                     # Success - create entry
