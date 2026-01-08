@@ -61,7 +61,24 @@ That's it! The integration will automatically:
 - Extract order IDs from incoming emails
 - Update the tracker automatically when a new order is detected
 
-**Note:** For Gmail, you'll need to use an [App Password](https://support.google.com/accounts/answer/185833) instead of your regular password.
+**Important - Gmail Setup:**
+1. **Enable 2-Step Verification** (if not already enabled):
+   - Go to [Google Account Security](https://myaccount.google.com/security)
+   - Enable 2-Step Verification
+
+2. **Generate an App Password**:
+   - Go to [App Passwords](https://myaccount.google.com/apppasswords)
+   - Select "Mail" and your device
+   - Click "Generate"
+   - Copy the 16-character password (no spaces)
+
+3. **Use the App Password**:
+   - In the integration setup, use your full Gmail address (e.g., `yourname@gmail.com`)
+   - Use the 16-character App Password (not your regular Gmail password)
+   - Server: `imap.gmail.com`
+   - Port: `993`
+
+**Note:** You cannot use your regular Gmail password - you must use an App Password for security reasons.
 
 **Forwarded Emails:** The integration also works with forwarded emails! If you forward ChickenCartel order emails to yourself, or if emails come from your own address, the integration will detect them as long as they contain ChickenCartel-related content (subject, URLs, or keywords).
 
