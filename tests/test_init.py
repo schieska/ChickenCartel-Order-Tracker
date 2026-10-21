@@ -6,7 +6,11 @@ import pytest
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from custom_components.chickencartel import async_setup_entry, async_unload_entry
+from custom_components.chickencartel import (
+    async_migrate_entry,
+    async_setup_entry,
+    async_unload_entry,
+)
 from custom_components.chickencartel.const import DOMAIN
 
 
@@ -16,6 +20,7 @@ def mock_hass():
     hass = MagicMock(spec=HomeAssistant)
     hass.data = {}
     hass.config_entries = MagicMock()
+    hass.services = MagicMock()
     hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
     hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
     return hass
@@ -102,3 +107,16 @@ class TestAsyncUnloadEntry:
         assert result is False
         # Entry should still be in data if unload failed
         assert mock_entry.entry_id in mock_hass.data[DOMAIN]
+
+
+@pytest.mark.asyncio
+async def test_migrate_version_one_entry(mock_hass, mock_entry):
+    """Version-one manual entries are migrated without requiring email."""
+    mock_entry.version = 1
+
+    assert await async_migrate_entry(mock_hass, mock_entry) is True
+    mock_hass.config_entries.async_update_entry.assert_called_once_with(
+        mock_entry,
+        data={**mock_entry.data, "email_enabled": False},
+        version=2,
+    )

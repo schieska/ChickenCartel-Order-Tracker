@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from typing import Any
 
+import aioimaplib
 import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
-from homeassistant.core import HomeAssistant
 
 from .const import (
     CONF_EMAIL_CHECK_INTERVAL,
@@ -46,24 +47,55 @@ class ChickenCartelConfigFlow(ConfigFlow, domain=DOMAIN):
 
     VERSION = 2
 
-    async def async_migrate_entry(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Migrate old config entries to new format."""
-        if self.VERSION == 2 and CONF_EMAIL_ENABLED not in data:
-            # Add default email settings for old entries
-            data[CONF_EMAIL_ENABLED] = False
-        return data
-
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle the initial step - always proceed to email configuration."""
-        # Skip the initial step and go directly to email configuration
-        # Store any optional order ID if provided
-        self._email_data = {
-            CONF_POLLING_INTERVAL: DEFAULT_POLLING_INTERVAL,
-            CONF_ORDER_ID: "pending-email-detection",
-        }
-        return await self.async_step_email()
+        """Configure a manual order ID or opt into email auto-detection."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            order_id = user_input.get(CONF_ORDER_ID, "").strip().lower()
+            email_enabled = user_input.get(CONF_EMAIL_ENABLED, False)
+
+            if order_id and not validate_order_id(order_id):
+                errors[CONF_ORDER_ID] = "invalid_order_id"
+            elif not order_id and not email_enabled:
+                errors[CONF_ORDER_ID] = "order_id_or_email_required"
+            else:
+                normalized_order_id = order_id or "pending-email-detection"
+                self._email_data = {
+                    CONF_ORDER_ID: normalized_order_id,
+                    CONF_POLLING_INTERVAL: user_input.get(
+                        CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL
+                    ),
+                }
+
+                if email_enabled:
+                    return await self.async_step_email()
+
+                await self.async_set_unique_id(normalized_order_id)
+                self._abort_if_unique_id_configured()
+                return self.async_create_entry(
+                    title=f"Order {normalized_order_id[:8]}...",
+                    data={
+                        **self._email_data,
+                        CONF_EMAIL_ENABLED: False,
+                    },
+                )
+
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(CONF_ORDER_ID, default=""): str,
+                    vol.Optional(
+                        CONF_POLLING_INTERVAL, default=DEFAULT_POLLING_INTERVAL
+                    ): vol.All(vol.Coerce(int), vol.Range(min=5, max=300)),
+                    vol.Optional(CONF_EMAIL_ENABLED, default=False): bool,
+                }
+            ),
+            errors=errors,
+        )
 
     async def async_step_email(
         self, user_input: dict[str, Any] | None = None
@@ -85,73 +117,93 @@ class ChickenCartelConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors[CONF_EMAIL_PASSWORD] = "email_password_required"
             else:
                 # Test email connection and verify ChickenCartel emails can be found
+                test_client: aioimaplib.IMAP4_SSL | None = None
                 try:
-                    import aioimaplib
-                    import asyncio
-                    
                     # Test connection with timeout
                     test_client = aioimaplib.IMAP4_SSL(
                         server, user_input.get(CONF_EMAIL_PORT, DEFAULT_EMAIL_PORT)
                     )
-                    
+
                     # Wait for server hello with timeout
                     await asyncio.wait_for(
-                        test_client.wait_hello_from_server(),
-                        timeout=10.0
+                        test_client.wait_hello_from_server(), timeout=10.0
                     )
-                    
+
                     # Test login
-                    await asyncio.wait_for(
-                        test_client.login(username, password),
-                        timeout=10.0
+                    login_response = await asyncio.wait_for(
+                        test_client.login(username, password), timeout=10.0
                     )
-                    
+                    if login_response.result != "OK":
+                        raise aioimaplib.IMAP4.error("Authentication failed")
+
                     # Test folder access
                     folder = user_input.get(CONF_EMAIL_FOLDER, DEFAULT_EMAIL_FOLDER)
-                    await asyncio.wait_for(
-                        test_client.select(folder),
-                        timeout=5.0
+                    select_response = await asyncio.wait_for(
+                        test_client.select(folder), timeout=5.0
                     )
-                    
+                    if select_response.result != "OK":
+                        raise aioimaplib.IMAP4.error(
+                            f"Unable to select email folder: {folder}"
+                        )
+
                     # Search for emails containing "chickencartel" in headers
                     # Search in subject, from, and body
-                    search_query = '(OR (SUBJECT "chickencartel") (FROM "chickencartel") (BODY "chickencartel"))'
                     try:
-                        status, messages = await asyncio.wait_for(
-                            test_client.search(search_query),
-                            timeout=5.0
+                        search_response = await asyncio.wait_for(
+                            test_client.uid_search(
+                                "OR",
+                                "FROM",
+                                '"dehamburgerij.nl"',
+                                "SUBJECT",
+                                '"Chicken Cartel"',
+                            ),
+                            timeout=5.0,
                         )
-                        if status == "OK":
-                            email_count = len(messages[0].split()) if messages[0] else 0
-                            _LOGGER.info("Found %d ChickenCartel email(s) in %s", email_count, folder)
+                        if search_response.result == "OK":
+                            email_count = (
+                                len(search_response.lines[0].split())
+                                if search_response.lines
+                                else 0
+                            )
+                            _LOGGER.info(
+                                "Found %d ChickenCartel email(s) in %s",
+                                email_count,
+                                folder,
+                            )
                             if email_count == 0:
                                 # Don't fail, but log a warning - user might not have emails yet
-                                _LOGGER.info("No ChickenCartel emails found yet - this is OK if you haven't received any order confirmations")
-                    except Exception as search_err:
-                        _LOGGER.debug("Email search test failed (non-critical): %s", search_err)
+                                _LOGGER.info(
+                                    "No ChickenCartel emails found yet - this is OK if you haven't received any order confirmations"
+                                )
+                    except (
+                        aioimaplib.IMAP4.error,
+                        aioimaplib.Abort,
+                        OSError,
+                        TimeoutError,
+                    ) as search_err:
+                        _LOGGER.debug(
+                            "Email search test failed (non-critical): %s", search_err
+                        )
                         # Don't fail on search - connection is what matters
-                    
-                    # Clean logout
-                    try:
-                        await test_client.logout()
-                    except Exception:
-                        pass  # Ignore logout errors
-                    
+
                     _LOGGER.info("Email connection test successful for %s", username)
-                    
-                except asyncio.TimeoutError:
+
+                except TimeoutError:
                     errors["base"] = "email_connection_timeout"
                     _LOGGER.error("Email connection test timed out for %s", server)
                 except aioimaplib.IMAP4.error as err:
                     error_msg = str(err)
-                    if "authentication failed" in error_msg.lower() or "invalid credentials" in error_msg.lower():
+                    if (
+                        "authentication failed" in error_msg.lower()
+                        or "invalid credentials" in error_msg.lower()
+                    ):
                         errors["base"] = "email_authentication_failed"
                     elif "connection refused" in error_msg.lower():
                         errors["base"] = "email_connection_refused"
                     else:
                         errors["base"] = "email_connection_failed"
                     _LOGGER.error("Email connection test failed: %s", err)
-                except Exception as err:
+                except (aioimaplib.Abort, OSError, ValueError) as err:
                     error_msg = str(err).lower()
                     if "timeout" in error_msg or "timed out" in error_msg:
                         errors["base"] = "email_connection_timeout"
@@ -164,14 +216,16 @@ class ChickenCartelConfigFlow(ConfigFlow, domain=DOMAIN):
                     _LOGGER.error("Email connection test failed: %s", err)
                 else:
                     # Success - create entry
-                    order_id = self._email_data.get(CONF_ORDER_ID, "pending-email-detection")
-                    
+                    order_id = self._email_data.get(
+                        CONF_ORDER_ID, "pending-email-detection"
+                    )
+
                     # Use a unique ID based on email username if no order ID yet
                     if order_id == "pending-email-detection":
                         unique_id = f"email-{username.lower()}"
                     else:
                         unique_id = order_id.lower()
-                    
+
                     await self.async_set_unique_id(unique_id)
                     self._abort_if_unique_id_configured()
 
@@ -198,23 +252,25 @@ class ChickenCartelConfigFlow(ConfigFlow, domain=DOMAIN):
                             ),
                         },
                     )
+                finally:
+                    if test_client is not None:
+                        try:
+                            await test_client.logout()
+                        except (aioimaplib.IMAP4.error, aioimaplib.Abort, OSError):
+                            _LOGGER.debug("Unable to close the test IMAP connection")
 
         # Show email configuration form
         return self.async_show_form(
             step_id="email",
             data_schema=vol.Schema(
                 {
-                    vol.Required(
-                        CONF_EMAIL_SERVER, default="imap.gmail.com"
-                    ): str,
+                    vol.Required(CONF_EMAIL_SERVER, default="imap.gmail.com"): str,
                     vol.Required(CONF_EMAIL_PORT, default=DEFAULT_EMAIL_PORT): vol.All(
                         vol.Coerce(int), vol.Range(min=1, max=65535)
                     ),
                     vol.Required(CONF_EMAIL_USERNAME): str,
                     vol.Required(CONF_EMAIL_PASSWORD): str,
-                    vol.Optional(
-                        CONF_EMAIL_FOLDER, default=DEFAULT_EMAIL_FOLDER
-                    ): str,
+                    vol.Optional(CONF_EMAIL_FOLDER, default=DEFAULT_EMAIL_FOLDER): str,
                     vol.Optional(
                         CONF_EMAIL_CHECK_INTERVAL, default=DEFAULT_EMAIL_CHECK_INTERVAL
                     ): vol.All(vol.Coerce(int), vol.Range(min=30, max=3600)),

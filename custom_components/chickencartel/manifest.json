@@ -1,11 +1,11 @@
 {
   "domain": "chickencartel",
   "name": "ChickenCartel Order Tracker",
-  "codeowners": [],
+  "codeowners": ["@schieska"],
   "config_flow": true,
-  "documentation": "https://github.com/yourusername/ChickenCartel-Order-Tracker",
+  "documentation": "https://github.com/schieska/ChickenCartel-Order-Tracker",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/yourusername/ChickenCartel-Order-Tracker/issues",
-  "requirements": ["aioimaplib>=1.0.0"],
-  "version": "1.0.0"
+  "issue_tracker": "https://github.com/schieska/ChickenCartel-Order-Tracker/issues",
+  "requirements": ["aioimaplib==2.0.3"],
+  "version": "1.1.0"
 }

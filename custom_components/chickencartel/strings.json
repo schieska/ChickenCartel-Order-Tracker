@@ -3,7 +3,17 @@
     "step": {
       "user": {
         "title": "ChickenCartel Order Tracker",
-        "description": "Configure email monitoring to automatically detect order IDs from ChickenCartel emails."
+        "description": "Enter an order ID, or enable email auto-detection to find the newest Chicken Cartel order automatically.",
+        "data": {
+          "order_id": "Order ID (UUID)",
+          "polling_interval": "Polling interval (seconds)",
+          "email_enabled": "Enable email auto-detection"
+        },
+        "data_description": {
+          "order_id": "Optional when email auto-detection is enabled. This is the UUID in the tracking link.",
+          "polling_interval": "How often to check for status updates (5-300 seconds)",
+          "email_enabled": "Monitor your mailbox for new Chicken Cartel order confirmations"
+        }
       },
       "email": {
         "title": "Email Configuration",

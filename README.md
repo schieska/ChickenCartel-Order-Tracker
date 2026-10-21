@@ -36,8 +36,10 @@ Track your ChickenCartel food delivery orders directly in Home Assistant. Get re
 1. Go to **Settings** → **Devices & Services**
 2. Click **Add Integration**
 3. Search for "ChickenCartel Order Tracker"
-4. Enter your order ID (UUID from your order confirmation)
+4. Enter the order ID (the UUID in the tracking link from your order confirmation)
 5. Optionally adjust the polling interval (default: 15 seconds)
+
+You can also enable **Email Auto-Detect** instead of entering an order ID. When it is enabled, continue to the email configuration step.
 
 ### Automatic Order ID from Email (Built-in)
 
@@ -46,8 +48,8 @@ The integration includes **built-in email monitoring** - no need to install sepa
 **Setup:**
 1. Go to **Settings** → **Devices & Services**
 2. Click **Add Integration** → **ChickenCartel Order Tracker**
-3. Enter any order ID (or leave a placeholder)
-4. **Enable "Email Auto-Detect"**
+3. Leave the order ID empty (or enter the current one as an initial value)
+4. **Enable "Email Auto-Detect"** and continue
 5. Configure your email settings:
    - **Email Server**: `imap.gmail.com` (or your provider)
    - **Port**: `993` (SSL)
@@ -57,7 +59,8 @@ The integration includes **built-in email monitoring** - no need to install sepa
    - **Check Interval**: How often to check for emails (default: 60 seconds)
 
 That's it! The integration will automatically:
-- Monitor your inbox for ChickenCartel order confirmation emails
+- Find the newest matching Chicken Cartel order confirmation, even if it has already been read
+- Monitor your inbox for later order confirmations
 - Extract order IDs from incoming emails
 - Update the tracker automatically when a new order is detected
 
@@ -230,9 +233,10 @@ A: The sensor will show "unknown" state and retry on the next polling interval.
 
 ## Privacy
 
-- No authentication required
+- The Chicken Cartel status endpoint does not require authentication
+- Email auto-detection requires IMAP credentials; for Gmail, use a revocable App Password
 - No personal data is stored outside Home Assistant
-- Order ID is stored locally in your Home Assistant config only
+- Email credentials and the order ID are stored in your Home Assistant config only
 
 ## License
 

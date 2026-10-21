@@ -1,7 +1,8 @@
 """Tests for config flow."""
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import aioimaplib
 import pytest
 from homeassistant import data_entry_flow
 from homeassistant.core import HomeAssistant
@@ -10,8 +11,6 @@ from custom_components.chickencartel.config_flow import (
     ChickenCartelConfigFlow,
     validate_order_id,
 )
-
-
 
 
 class TestValidateOrderId:
@@ -55,6 +54,7 @@ class TestConfigFlow:
         """Test successful config flow with valid input."""
         flow = ChickenCartelConfigFlow()
         flow.hass = hass
+        flow.context = {}
         flow.init_data = {}
 
         result = await flow.async_step_user(
@@ -73,6 +73,7 @@ class TestConfigFlow:
         """Test config flow with default polling interval."""
         flow = ChickenCartelConfigFlow()
         flow.hass = hass
+        flow.context = {}
         flow.init_data = {}
 
         result = await flow.async_step_user(
@@ -88,6 +89,7 @@ class TestConfigFlow:
         """Test config flow with invalid order ID."""
         flow = ChickenCartelConfigFlow()
         flow.hass = hass
+        flow.context = {}
         flow.init_data = {}
 
         result = await flow.async_step_user(
@@ -98,12 +100,13 @@ class TestConfigFlow:
         )
 
         assert result["type"] == data_entry_flow.FlowResultType.FORM
-        assert result["errors"]["base"] == "invalid_order_id"
+        assert result["errors"]["order_id"] == "invalid_order_id"
 
     async def test_user_step_duplicate_order(self, hass: HomeAssistant):
         """Test config flow with duplicate order ID."""
         flow = ChickenCartelConfigFlow()
         flow.hass = hass
+        flow.context = {}
         flow.init_data = {}
 
         order_id = "123e4567-e89b-12d3-a456-426614174000"
@@ -120,20 +123,23 @@ class TestConfigFlow:
         # Second entry with same order ID
         flow2 = ChickenCartelConfigFlow()
         flow2.hass = hass
+        flow2.context = {}
         flow2.init_data = {}
 
         # Mock existing entries
-        with patch.object(
-            flow2, "async_set_unique_id", return_value=None
-        ), patch.object(flow2, "_abort_if_unique_id_configured") as mock_abort:
+        with (
+            patch.object(flow2, "async_set_unique_id", return_value=None),
+            patch.object(flow2, "_abort_if_unique_id_configured") as mock_abort,
+        ):
             mock_abort.side_effect = data_entry_flow.AbortFlow("already_configured")
 
-            result2 = await flow2.async_step_user(
-                user_input={
-                    "order_id": order_id,
-                    "polling_interval": 15,
-                }
-            )
+            with pytest.raises(data_entry_flow.AbortFlow):
+                await flow2.async_step_user(
+                    user_input={
+                        "order_id": order_id,
+                        "polling_interval": 15,
+                    }
+                )
 
             # Should abort due to duplicate
             assert mock_abort.called
@@ -142,6 +148,7 @@ class TestConfigFlow:
         """Test that order ID is normalized to lowercase."""
         flow = ChickenCartelConfigFlow()
         flow.hass = hass
+        flow.context = {}
         flow.init_data = {}
 
         result = await flow.async_step_user(
@@ -158,6 +165,7 @@ class TestConfigFlow:
         """Test that form is displayed correctly."""
         flow = ChickenCartelConfigFlow()
         flow.hass = hass
+        flow.context = {}
         flow.init_data = {}
 
         result = await flow.async_step_user(user_input=None)
@@ -165,10 +173,68 @@ class TestConfigFlow:
         assert result["type"] == data_entry_flow.FlowResultType.FORM
         assert "data_schema" in result
 
+    async def test_user_step_email_auto_detect(self, hass: HomeAssistant):
+        """Email auto-detection can be selected without a placeholder UUID."""
+        flow = ChickenCartelConfigFlow()
+        flow.hass = hass
+        flow.context = {}
+        flow.init_data = {}
+
+        result = await flow.async_step_user(
+            user_input={
+                "order_id": "",
+                "polling_interval": 15,
+                "email_enabled": True,
+            }
+        )
+
+        assert result["type"] == data_entry_flow.FlowResultType.FORM
+        assert result["step_id"] == "email"
+        assert flow._email_data["order_id"] == "pending-email-detection"
+
+    async def test_email_step_creates_entry(self, hass: HomeAssistant):
+        """A successful IMAP check creates an email-enabled entry."""
+        flow = ChickenCartelConfigFlow()
+        flow.hass = hass
+        flow.context = {}
+        flow.init_data = {}
+        flow._email_data = {
+            "order_id": "pending-email-detection",
+            "polling_interval": 15,
+        }
+        client = MagicMock()
+        client.wait_hello_from_server = AsyncMock()
+        client.login = AsyncMock(return_value=aioimaplib.Response("OK", []))
+        client.select = AsyncMock(return_value=aioimaplib.Response("OK", [b"1"]))
+        client.uid_search = AsyncMock(return_value=aioimaplib.Response("OK", [b"10"]))
+        client.logout = AsyncMock(return_value=aioimaplib.Response("OK", []))
+
+        with patch(
+            "custom_components.chickencartel.config_flow.aioimaplib.IMAP4_SSL",
+            return_value=client,
+        ):
+            result = await flow.async_step_email(
+                user_input={
+                    "email_server": "imap.example.com",
+                    "email_port": 993,
+                    "email_username": "user@example.com",
+                    "email_password": "app-password",
+                    "email_folder": "INBOX",
+                    "email_check_interval": 60,
+                }
+            )
+
+        assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
+        assert result["data"]["email_enabled"] is True
+        assert result["data"]["order_id"] == "pending-email-detection"
+        client.uid_search.assert_awaited_once()
+        client.logout.assert_awaited_once()
+
     async def test_polling_interval_validation(self, hass: HomeAssistant):
         """Test polling interval validation."""
         flow = ChickenCartelConfigFlow()
         flow.hass = hass
+        flow.context = {}
         flow.init_data = {}
 
         # Test minimum value

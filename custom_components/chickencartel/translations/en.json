@@ -3,19 +3,42 @@
     "step": {
       "user": {
         "title": "ChickenCartel Order Tracker",
-        "description": "Enter your ChickenCartel order ID to start tracking.",
+        "description": "Enter an order ID, or enable email auto-detection to find the newest Chicken Cartel order automatically.",
         "data": {
           "order_id": "Order ID (UUID)",
-          "polling_interval": "Polling interval (seconds)"
+          "polling_interval": "Polling interval (seconds)",
+          "email_enabled": "Enable email auto-detection"
         },
         "data_description": {
-          "order_id": "The UUID from your order confirmation",
-          "polling_interval": "How often to check for status updates (5-300 seconds)"
+          "order_id": "Optional when email auto-detection is enabled. This is the UUID in the tracking link.",
+          "polling_interval": "How often to check for status updates (5-300 seconds)",
+          "email_enabled": "Monitor your mailbox for new Chicken Cartel order confirmations"
+        }
+      },
+      "email": {
+        "title": "Email Configuration",
+        "description": "Configure email monitoring to automatically detect order IDs from Chicken Cartel emails. For Gmail, use an App Password rather than your regular password.",
+        "data": {
+          "email_server": "IMAP Server",
+          "email_port": "Port",
+          "email_username": "Email Address",
+          "email_password": "App Password",
+          "email_folder": "Folder",
+          "email_check_interval": "Check Interval (seconds)"
         }
       }
     },
     "error": {
       "invalid_order_id": "Invalid order ID format. Please enter a valid UUID.",
+      "order_id_or_email_required": "Enter an order ID or enable email auto-detection.",
+      "email_server_required": "Email server is required.",
+      "email_username_required": "Email username is required.",
+      "email_password_required": "Email password is required.",
+      "email_connection_failed": "Failed to connect to the email server. Check the server, port, and credentials.",
+      "email_connection_timeout": "The email connection timed out.",
+      "email_connection_refused": "The email server refused the connection.",
+      "email_authentication_failed": "Authentication failed. Gmail requires a 16-character App Password.",
+      "email_ssl_error": "SSL/TLS connection failed. Port 993 is normally used for IMAP over SSL.",
       "cannot_connect": "Unable to connect to ChickenCartel API.",
       "unknown": "An unexpected error occurred."
     },

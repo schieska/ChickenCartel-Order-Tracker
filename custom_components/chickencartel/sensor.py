@@ -24,11 +24,14 @@ async def async_setup_entry(
     async_add_entities([ChickenCartelOrderSensor(coordinator, entry)])
 
 
-class ChickenCartelOrderSensor(CoordinatorEntity[ChickenCartelCoordinator], SensorEntity):
+class ChickenCartelOrderSensor(
+    CoordinatorEntity[ChickenCartelCoordinator], SensorEntity
+):
     """Sensor representing ChickenCartel order status."""
 
     _attr_has_entity_name = True
     _attr_name = "Order Status"
+    _attr_translation_key = "order_status"
     _attr_icon = "mdi:food"
 
     def __init__(
@@ -40,6 +43,7 @@ class ChickenCartelOrderSensor(CoordinatorEntity[ChickenCartelCoordinator], Sens
         super().__init__(coordinator)
         self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_order_status"
+        self._last_order_id = coordinator.order_id
         self._update_device_info()
 
     def _update_device_info(self) -> None:
@@ -82,22 +86,11 @@ class ChickenCartelOrderSensor(CoordinatorEntity[ChickenCartelCoordinator], Sens
         # Entity is available even if API returns error (shows as 'unknown')
         return self.coordinator.data is not None
 
-    async def async_added_to_hass(self) -> None:
-        """When entity is added to hass."""
-        await super().async_added_to_hass()
-        # Store original order ID to detect changes
-        self._last_order_id = self.coordinator.order_id
-        # Add listener for order ID changes
-        self.async_on_remove(
-            self.coordinator.async_add_listener(self._handle_coordinator_update)
-        )
-
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle coordinator update to refresh device info if order ID changed."""
         # Check if order ID changed and update device info
-        if hasattr(self, '_last_order_id') and self.coordinator.order_id != self._last_order_id:
+        if self.coordinator.order_id != self._last_order_id:
             self._last_order_id = self.coordinator.order_id
             self._update_device_info()
-        # Always write state (CoordinatorEntity handles this, but we override to add device info update)
-        self.async_write_ha_state()
+        super()._handle_coordinator_update()

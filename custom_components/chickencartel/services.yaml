@@ -1,0 +1,93 @@
+set_order_id:
+  name: Set order ID
+  description: Update the tracked Chicken Cartel order and restart polling.
+  fields:
+    order_id:
+      name: Order ID
+      description: The UUID from the order tracking link.
+      required: true
+      example: 68b9e014-3378-4bb3-b121-5a5200d1453b
+      selector:
+        text:
+    entity_id:
+      name: Entity
+      description: Limit the update to one Chicken Cartel sensor.
+      selector:
+        entity:
+          integration: chickencartel
+          domain: sensor
+
+parse_email:
+  name: Parse email
+  description: Extract an order ID from email content and optionally track it.
+  fields:
+    subject:
+      name: Subject
+      required: true
+      selector:
+        text:
+    body:
+      name: Plain-text body
+      selector:
+        text:
+          multiline: true
+    html_body:
+      name: HTML body
+      selector:
+        text:
+          multiline: true
+    sender:
+      name: Sender
+      selector:
+        text:
+    entity_id:
+      name: Entity
+      selector:
+        entity:
+          integration: chickencartel
+          domain: sensor
+    auto_update:
+      name: Update tracker
+      default: true
+      selector:
+        boolean:
+
+test_email:
+  name: Test email parsing
+  description: Test whether email content contains a Chicken Cartel order ID.
+  fields:
+    subject:
+      name: Subject
+      required: true
+      selector:
+        text:
+    body:
+      name: Plain-text body
+      selector:
+        text:
+          multiline: true
+    html_body:
+      name: HTML body
+      selector:
+        text:
+          multiline: true
+    sender:
+      name: Sender
+      selector:
+        text:
+    auto_update:
+      name: Update tracker
+      default: false
+      selector:
+        boolean:
+
+check_email_now:
+  name: Check email now
+  description: Immediately check configured mailboxes for a new order.
+  fields:
+    entity_id:
+      name: Entity
+      selector:
+        entity:
+          integration: chickencartel
+          domain: sensor
