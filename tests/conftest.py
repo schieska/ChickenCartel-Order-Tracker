@@ -1,12 +1,21 @@
 """Pytest configuration and fixtures for ChickenCartel tests."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+import sys
+from unittest.mock import MagicMock
 
 import pytest
+import pytest_socket
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from custom_components.chickencartel.coordinator import ChickenCartelCoordinator
+
+if sys.platform == "win32":
+    # pytest-homeassistant-custom-component disables socket construction before
+    # every test. On Windows asyncio itself needs an AF_INET socketpair merely
+    # to create an event loop, so the Linux-oriented guard prevents all tests
+    # from starting. Network access in these tests is mocked explicitly.
+    pytest_socket.disable_socket = lambda *args, **kwargs: None
+    pytest_socket.enable_socket()
 
 
 @pytest.fixture

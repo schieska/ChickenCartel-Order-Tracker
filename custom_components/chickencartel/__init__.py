@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import voluptuous as vol
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.helpers import config_validation as cv, entity_registry as er
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import entity_registry as er
 
+from .config_flow import validate_order_id
 from .const import (
     CONF_EMAIL_CHECK_INTERVAL,
     CONF_EMAIL_ENABLED,
@@ -29,7 +29,6 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import ChickenCartelCoordinator
-from .config_flow import validate_order_id
 from .email_monitor import EmailMonitor
 from .email_parser import extract_order_id_from_email
 
@@ -91,6 +90,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass,
         order_id=order_id,
         polling_interval=polling_interval,
+        config_entry=entry,
     )
 
     # Only fetch initial data if we have a real order ID
@@ -98,18 +98,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await coordinator.async_config_entry_first_refresh()
     else:
         # Set initial data to indicate waiting for email
-        coordinator.async_set_updated_data({
-            "order_id": "pending-email-detection",
-            "order_harmony_status": None,
-            "status": "unknown",
-            "error": "Waiting for email to detect order ID",
-        })
+        coordinator.async_set_updated_data(
+            {
+                "order_id": "pending-email-detection",
+                "order_harmony_status": None,
+                "status": "unknown",
+                "error": "Waiting for email to detect order ID",
+            }
+        )
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
     # Set up email monitoring if enabled
     if email_enabled:
+
         async def on_order_id_found(new_order_id: str) -> None:
             """Callback when order ID is found in email."""
             _LOGGER.info("Email monitor found order ID: %s", new_order_id)
@@ -129,13 +132,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             username=entry.data[CONF_EMAIL_USERNAME],
             password=entry.data[CONF_EMAIL_PASSWORD],
             folder=entry.data.get(CONF_EMAIL_FOLDER, DEFAULT_EMAIL_FOLDER),
-            check_interval=entry.data.get(CONF_EMAIL_CHECK_INTERVAL, DEFAULT_EMAIL_CHECK_INTERVAL),
+            check_interval=entry.data.get(
+                CONF_EMAIL_CHECK_INTERVAL, DEFAULT_EMAIL_CHECK_INTERVAL
+            ),
             on_order_id_found=on_order_id_found,
+            config_entry=entry,
         )
-        
+
         # Store email monitor
         hass.data[DOMAIN][f"{entry.entry_id}_email"] = email_monitor
-        
+
         # Start monitoring
         await email_monitor.async_config_entry_first_refresh()
 
@@ -143,6 +149,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Register service if not already registered
     if "_service_registered" not in hass.data[DOMAIN]:
+
         async def async_handle_set_order_id(call: ServiceCall) -> None:
             """Handle the set_order_id service call."""
             order_id = call.data["order_id"]
@@ -164,16 +171,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 for entity_id in entity_ids:
                     # Find the entity and get its coordinator
                     entity = entity_registry.async_get(entity_id)
-                    
-                    if entity and entity.platform == DOMAIN:
-                        # Find coordinator by matching unique_id pattern
-                        # unique_id format: <entry_id>_order_status
-                        if entity.unique_id and entity.unique_id.endswith("_order_status"):
-                            entry_id = entity.unique_id.replace("_order_status", "")
-                            if entry_id in hass.data[DOMAIN]:
-                                coordinator = hass.data[DOMAIN][entry_id]
-                                if isinstance(coordinator, ChickenCartelCoordinator):
-                                    coordinators_to_update.append((entry_id, coordinator))
+
+                    if (
+                        entity
+                        and entity.platform == DOMAIN
+                        and entity.unique_id
+                        and entity.unique_id.endswith("_order_status")
+                    ):
+                        entry_id = entity.unique_id.removesuffix("_order_status")
+                        if entry_id in hass.data[DOMAIN]:
+                            coordinator = hass.data[DOMAIN][entry_id]
+                            if isinstance(coordinator, ChickenCartelCoordinator):
+                                coordinators_to_update.append((entry_id, coordinator))
             else:
                 # Update all coordinators
                 for entry_id, coordinator in hass.data[DOMAIN].items():
@@ -183,7 +192,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             # Update coordinators and config entries
             for entry_id, coordinator in coordinators_to_update:
                 await coordinator.update_order_id(order_id)
-                
+
                 # Update config entry
                 entry = hass.config_entries.async_get_entry(entry_id)
                 if entry:
@@ -202,7 +211,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             sender = call.data.get("sender", "")
             entity_ids = call.data.get("entity_id")
             auto_update = call.data.get("auto_update", True)
-            
+
             # Extract order ID from email
             order_id = extract_order_id_from_email(
                 subject=subject,
@@ -210,13 +219,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 html_body=html_body,
                 sender=sender,
             )
-            
+
             if not order_id:
-                _LOGGER.warning("No valid order ID found in email from %s", sender or "unknown")
+                _LOGGER.warning(
+                    "No valid order ID found in email from %s", sender or "unknown"
+                )
                 return
-            
+
             _LOGGER.info("Extracted order ID %s from email", order_id[:8])
-            
+
             # If auto_update is enabled, automatically update the order ID
             if auto_update:
                 # Call the set_order_id service
@@ -240,6 +251,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             async_handle_set_order_id,
             schema=SERVICE_SET_ORDER_ID_SCHEMA,
         )
+
         async def async_handle_test_email(call: ServiceCall) -> None:
             """Handle the test_email service call to test email parsing."""
             subject = call.data.get("subject", "")
@@ -247,9 +259,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             html_body = call.data.get("html_body", "")
             sender = call.data.get("sender", "info@dehamburgerij.nl")
             auto_update = call.data.get("auto_update", False)
-            
+
             _LOGGER.info("Testing email parsing with subject: %s", subject)
-            
+
             # Extract order ID from email
             order_id = extract_order_id_from_email(
                 subject=subject,
@@ -257,7 +269,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 html_body=html_body,
                 sender=sender,
             )
-            
+
             if not order_id:
                 _LOGGER.warning("❌ Test failed: No valid order ID found in test email")
                 # Store result for user feedback
@@ -270,9 +282,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     },
                 )
                 return
-            
+
             _LOGGER.info("✅ Test successful: Found order ID %s", order_id)
-            
+
             # Store result for user feedback
             hass.bus.async_fire(
                 "chickencartel_test_email_result",
@@ -283,7 +295,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     "subject": subject,
                 },
             )
-            
+
             # If auto_update is enabled, update the order ID
             if auto_update:
                 await async_handle_set_order_id(
@@ -297,29 +309,33 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         async def async_handle_check_email_now(call: ServiceCall) -> None:
             """Handle the check_email_now service call to manually trigger email check."""
             entity_ids = call.data.get("entity_id")
-            
+
             # Find email monitors to check
             monitors_to_check: list[EmailMonitor] = []
-            
+
             if entity_ids:
                 # Check specific entities
                 entity_registry = er.async_get(hass)
                 for entity_id in entity_ids:
                     entity = entity_registry.async_get(entity_id)
-                    if entity and entity.platform == DOMAIN:
-                        if entity.unique_id and entity.unique_id.endswith("_order_status"):
-                            entry_id = entity.unique_id.replace("_order_status", "")
-                            email_monitor_key = f"{entry_id}_email"
-                            if email_monitor_key in hass.data[DOMAIN]:
-                                monitor = hass.data[DOMAIN][email_monitor_key]
-                                if isinstance(monitor, EmailMonitor):
-                                    monitors_to_check.append(monitor)
+                    if (
+                        entity
+                        and entity.platform == DOMAIN
+                        and entity.unique_id
+                        and entity.unique_id.endswith("_order_status")
+                    ):
+                        entry_id = entity.unique_id.removesuffix("_order_status")
+                        email_monitor_key = f"{entry_id}_email"
+                        if email_monitor_key in hass.data[DOMAIN]:
+                            monitor = hass.data[DOMAIN][email_monitor_key]
+                            if isinstance(monitor, EmailMonitor):
+                                monitors_to_check.append(monitor)
             else:
                 # Check all email monitors
                 for key, value in hass.data[DOMAIN].items():
                     if key.endswith("_email") and isinstance(value, EmailMonitor):
                         monitors_to_check.append(value)
-            
+
             if not monitors_to_check:
                 _LOGGER.warning("No email monitors found to check")
                 hass.bus.async_fire(
@@ -330,12 +346,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     },
                 )
                 return
-            
+
             # Trigger check for each monitor
             for monitor in monitors_to_check:
                 _LOGGER.info("Manually triggering email check")
                 await monitor.async_request_refresh()
-            
+
             hass.bus.async_fire(
                 "chickencartel_check_email_result",
                 {
@@ -368,6 +384,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate config entries created before email auto-detection was added."""
+    if entry.version == 1:
+        hass.config_entries.async_update_entry(
+            entry,
+            data={**entry.data, CONF_EMAIL_ENABLED: False},
+            version=2,
+        )
+
+    return True
+
+
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
@@ -378,7 +406,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             if isinstance(email_monitor, EmailMonitor):
                 await email_monitor.async_shutdown()
             hass.data[DOMAIN].pop(email_monitor_key)
-        
+
         hass.data[DOMAIN].pop(entry.entry_id)
 
     return unload_ok

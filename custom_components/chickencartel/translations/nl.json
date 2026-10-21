@@ -3,19 +3,42 @@
     "step": {
       "user": {
         "title": "ChickenCartel Order Tracker",
-        "description": "Voer je ChickenCartel bestelnummer in om te beginnen met volgen.",
+        "description": "Voer een bestelnummer in, of schakel automatische e-maildetectie in om de nieuwste bestelling te vinden.",
         "data": {
           "order_id": "Bestelnummer (UUID)",
-          "polling_interval": "Verversingsinterval (seconden)"
+          "polling_interval": "Verversingsinterval (seconden)",
+          "email_enabled": "Automatische e-maildetectie inschakelen"
         },
         "data_description": {
-          "order_id": "De UUID uit je bestelbevestiging",
-          "polling_interval": "Hoe vaak te controleren op statusupdates (5-300 seconden)"
+          "order_id": "Optioneel wanneer e-maildetectie is ingeschakeld. Dit is de UUID in de trackinglink.",
+          "polling_interval": "Hoe vaak te controleren op statusupdates (5-300 seconden)",
+          "email_enabled": "Controleer je mailbox op nieuwe bestelbevestigingen van The Chicken Cartel"
+        }
+      },
+      "email": {
+        "title": "E-mailconfiguratie",
+        "description": "Configureer e-maildetectie om bestelnummers automatisch te vinden. Gebruik voor Gmail een app-wachtwoord in plaats van je gewone wachtwoord.",
+        "data": {
+          "email_server": "IMAP-server",
+          "email_port": "Poort",
+          "email_username": "E-mailadres",
+          "email_password": "App-wachtwoord",
+          "email_folder": "Map",
+          "email_check_interval": "Controle-interval (seconden)"
         }
       }
     },
     "error": {
       "invalid_order_id": "Ongeldig bestelnummer formaat. Voer een geldige UUID in.",
+      "order_id_or_email_required": "Voer een bestelnummer in of schakel automatische e-maildetectie in.",
+      "email_server_required": "De e-mailserver is verplicht.",
+      "email_username_required": "Het e-mailadres is verplicht.",
+      "email_password_required": "Het e-mailwachtwoord is verplicht.",
+      "email_connection_failed": "Verbinding met de e-mailserver mislukt. Controleer server, poort en inloggegevens.",
+      "email_connection_timeout": "De verbinding met de e-mailserver duurde te lang.",
+      "email_connection_refused": "De e-mailserver heeft de verbinding geweigerd.",
+      "email_authentication_failed": "Authenticatie mislukt. Gmail vereist een app-wachtwoord van 16 tekens.",
+      "email_ssl_error": "SSL/TLS-verbinding mislukt. Voor IMAP via SSL wordt meestal poort 993 gebruikt.",
       "cannot_connect": "Kan geen verbinding maken met de ChickenCartel API.",
       "unknown": "Er is een onverwachte fout opgetreden."
     },

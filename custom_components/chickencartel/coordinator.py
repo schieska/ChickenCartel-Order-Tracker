@@ -7,7 +7,9 @@ from datetime import timedelta
 from typing import Any
 
 import aiohttp
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import API_BASE_URL, FINAL_STATES, STATUS_MAP
@@ -23,11 +25,13 @@ class ChickenCartelCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         hass: HomeAssistant,
         order_id: str,
         polling_interval: int,
+        config_entry: ConfigEntry | None = None,
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(
             hass,
             _LOGGER,
+            config_entry=config_entry,
             name="ChickenCartel Order Status",
             update_interval=timedelta(seconds=polling_interval),
         )
@@ -44,29 +48,33 @@ class ChickenCartelCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         url = f"{API_BASE_URL}/{self.order_id}/status"
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
-                    if response.status == 404:
-                        _LOGGER.warning("Order %s not found", self.order_id)
-                        return {
-                            "order_id": self.order_id,
-                            "order_harmony_status": None,
-                            "status": "unknown",
-                            "error": "Order not found",
-                        }
+            session = async_get_clientsession(self.hass)
+            async with session.get(
+                url, timeout=aiohttp.ClientTimeout(total=10)
+            ) as response:
+                if response.status == 404:
+                    _LOGGER.warning("Order %s not found", self.order_id)
+                    return {
+                        "order_id": self.order_id,
+                        "order_harmony_status": None,
+                        "status": "unknown",
+                        "error": "Order not found",
+                    }
 
-                    if response.status != 200:
-                        raise UpdateFailed(f"API returned status {response.status}")
+                if response.status != 200:
+                    raise UpdateFailed(f"API returned status {response.status}")
 
-                    data = await response.json()
+                data = await response.json()
 
-        except aiohttp.ClientError as err:
-            _LOGGER.error("Error fetching order status: %s", err)
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise UpdateFailed(f"Error fetching order status: {err}") from err
+
+        if not isinstance(data, dict):
             return {
                 "order_id": self.order_id,
                 "order_harmony_status": None,
                 "status": "unknown",
-                "error": str(err),
+                "error": "API returned an invalid response",
             }
 
         # Parse the OrderHarmonyStatus
@@ -109,19 +117,19 @@ class ChickenCartelCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         old_order_id = self.order_id
         self.order_id = new_order_id.strip().lower()
-        
+
         _LOGGER.info(
             "Order ID updated from %s to %s, restarting polling",
             old_order_id[:8],
             self.order_id[:8],
         )
-        
+
         # Reset polling state
         self._polling_active = True
         self.update_interval = timedelta(seconds=self._polling_interval)
-        
+
         # Clear existing data
         self.data = None
-        
+
         # Force immediate update
         await self.async_request_refresh()

@@ -8,8 +8,8 @@ import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
-from custom_components.chickencartel.coordinator import ChickenCartelCoordinator
 from custom_components.chickencartel.const import FINAL_STATES, STATUS_MAP
+from custom_components.chickencartel.coordinator import ChickenCartelCoordinator
 
 
 @pytest.fixture
@@ -35,7 +35,10 @@ class TestChickenCartelCoordinator:
     @pytest.mark.asyncio
     async def test_successful_api_call(self, coordinator, sample_api_response):
         """Test successful API call."""
-        with patch("aiohttp.ClientSession.get") as mock_get:
+        with patch(
+            "custom_components.chickencartel.coordinator.async_get_clientsession"
+        ) as mock_get_session:
+            mock_get = mock_get_session.return_value.get
             mock_response = AsyncMock()
             mock_response.status = 200
             mock_response.json = AsyncMock(return_value=sample_api_response)
@@ -51,7 +54,10 @@ class TestChickenCartelCoordinator:
     @pytest.mark.asyncio
     async def test_api_404_response(self, coordinator):
         """Test handling of 404 response."""
-        with patch("aiohttp.ClientSession.get") as mock_get:
+        with patch(
+            "custom_components.chickencartel.coordinator.async_get_clientsession"
+        ) as mock_get_session:
+            mock_get = mock_get_session.return_value.get
             mock_response = AsyncMock()
             mock_response.status = 404
             mock_get.return_value.__aenter__.return_value = mock_response
@@ -66,7 +72,10 @@ class TestChickenCartelCoordinator:
     @pytest.mark.asyncio
     async def test_api_error_response(self, coordinator):
         """Test handling of API error response."""
-        with patch("aiohttp.ClientSession.get") as mock_get:
+        with patch(
+            "custom_components.chickencartel.coordinator.async_get_clientsession"
+        ) as mock_get_session:
+            mock_get = mock_get_session.return_value.get
             mock_response = AsyncMock()
             mock_response.status = 500
             mock_get.return_value.__aenter__.return_value = mock_response
@@ -77,21 +86,23 @@ class TestChickenCartelCoordinator:
     @pytest.mark.asyncio
     async def test_network_error(self, coordinator):
         """Test handling of network errors."""
-        with patch("aiohttp.ClientSession.get") as mock_get:
+        with patch(
+            "custom_components.chickencartel.coordinator.async_get_clientsession"
+        ) as mock_get_session:
+            mock_get = mock_get_session.return_value.get
             mock_get.side_effect = aiohttp.ClientError("Connection error")
 
-            result = await coordinator._async_update_data()
-
-            assert result["order_id"] == coordinator.order_id
-            assert result["status"] == "unknown"
-            assert "error" in result
-            assert result["order_harmony_status"] is None
+            with pytest.raises(UpdateFailed, match="Connection error"):
+                await coordinator._async_update_data()
 
     @pytest.mark.asyncio
     async def test_status_mapping(self, coordinator):
         """Test all status mappings."""
         for harmony_status, expected_status in STATUS_MAP.items():
-            with patch("aiohttp.ClientSession.get") as mock_get:
+            with patch(
+                "custom_components.chickencartel.coordinator.async_get_clientsession"
+            ) as mock_get_session:
+                mock_get = mock_get_session.return_value.get
                 mock_response = AsyncMock()
                 mock_response.status = 200
                 mock_response.json = AsyncMock(
@@ -107,7 +118,10 @@ class TestChickenCartelCoordinator:
     @pytest.mark.asyncio
     async def test_unknown_status(self, coordinator):
         """Test handling of unknown status code."""
-        with patch("aiohttp.ClientSession.get") as mock_get:
+        with patch(
+            "custom_components.chickencartel.coordinator.async_get_clientsession"
+        ) as mock_get_session:
+            mock_get = mock_get_session.return_value.get
             mock_response = AsyncMock()
             mock_response.status = 200
             mock_response.json = AsyncMock(return_value={"OrderHarmonyStatus": 999})
@@ -124,13 +138,16 @@ class TestChickenCartelCoordinator:
         for final_state in FINAL_STATES:
             # Reset coordinator
             coordinator._polling_active = True
-            coordinator.update_interval = timedelta(seconds=coordinator._polling_interval)
-
-            harmony_status = next(
-                k for k, v in STATUS_MAP.items() if v == final_state
+            coordinator.update_interval = timedelta(
+                seconds=coordinator._polling_interval
             )
 
-            with patch("aiohttp.ClientSession.get") as mock_get:
+            harmony_status = next(k for k, v in STATUS_MAP.items() if v == final_state)
+
+            with patch(
+                "custom_components.chickencartel.coordinator.async_get_clientsession"
+            ) as mock_get_session:
+                mock_get = mock_get_session.return_value.get
                 mock_response = AsyncMock()
                 mock_response.status = 200
                 mock_response.json = AsyncMock(
@@ -153,13 +170,16 @@ class TestChickenCartelCoordinator:
         for status in non_final_statuses:
             # Reset coordinator
             coordinator._polling_active = True
-            coordinator.update_interval = timedelta(seconds=coordinator._polling_interval)
-
-            harmony_status = next(
-                k for k, v in STATUS_MAP.items() if v == status
+            coordinator.update_interval = timedelta(
+                seconds=coordinator._polling_interval
             )
 
-            with patch("aiohttp.ClientSession.get") as mock_get:
+            harmony_status = next(k for k, v in STATUS_MAP.items() if v == status)
+
+            with patch(
+                "custom_components.chickencartel.coordinator.async_get_clientsession"
+            ) as mock_get_session:
+                mock_get = mock_get_session.return_value.get
                 mock_response = AsyncMock()
                 mock_response.status = 200
                 mock_response.json = AsyncMock(
