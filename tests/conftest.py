@@ -35,7 +35,7 @@ def sample_order_id():
 def sample_api_response():
     """Sample API response data."""
     return {
-        "OrderHarmonyStatus": 4,
+        "OrderHarmonyStatus": 6,
         "OrderId": "123e4567-e89b-12d3-a456-426614174000",
         "OrderNumber": "12345",
     }

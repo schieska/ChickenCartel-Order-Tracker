@@ -21,17 +21,25 @@ DEFAULT_EMAIL_FOLDER = "INBOX"
 
 API_BASE_URL = "https://www.chickencartel.nl/ordersjson"
 
-# Status mapping from OrderHarmonyStatus integer to human-readable state
+# Status mapping from the CashDesk OrderHarmonyStatus enum to stable,
+# user-facing states. The Chicken Cartel status page groups the intermediate
+# external-party/POS states into the same visible "sent to restaurant" step,
+# so codes 2-4 and 10 intentionally share the existing ``pos`` state.
 STATUS_MAP = {
-    -1: "failed",
-    0: "cancelled",
+    -3: "failed",  # ValidationFailed
+    -2: "failed",  # ImportFailed
+    -1: "cancelled",
     1: "received",
-    2: "pos",
-    3: "accepted",
-    4: "preparing",
-    5: "waiting_for_driver",
-    6: "en_route",
-    7: "completed",
+    2: "pos",  # RequestForExternalParty
+    3: "pos",  # ReadyForPOS
+    4: "pos",  # SentToPOS
+    5: "accepted",  # ACKByPOS / ready for preparation
+    6: "preparing",
+    7: "waiting_for_driver",
+    8: "en_route",
+    9: "completed",
+    10: "pos",  # WaitingForResponseExternalParty
+    11: "failed",  # RequestForExternalPartyFailed
 }
 
 # Final states that stop polling

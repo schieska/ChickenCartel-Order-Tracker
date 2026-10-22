@@ -47,7 +47,7 @@ class TestChickenCartelCoordinator:
             result = await coordinator._async_update_data()
 
             assert result["order_id"] == coordinator.order_id
-            assert result["order_harmony_status"] == 4
+            assert result["order_harmony_status"] == 6
             assert result["status"] == "preparing"
             assert "raw_data" in result
 
@@ -198,7 +198,7 @@ class TestChickenCartelCoordinator:
         coordinator.data = {
             "order_id": coordinator.order_id,
             "status": "completed",
-            "order_harmony_status": 7,
+            "order_harmony_status": 9,
         }
         coordinator._polling_active = False
 
