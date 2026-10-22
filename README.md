@@ -129,8 +129,8 @@ The integration creates one sensor entity:
 | State | Description |
 |-------|-------------|
 | `received` | Order received by system |
-| `pos` | Order sent to point of sale |
-| `accepted` | Order accepted by restaurant |
+| `pos` | Order is being sent to the restaurant's point of sale |
+| `accepted` | Order accepted and ready to be prepared |
 | `preparing` | Food is being prepared |
 | `waiting_for_driver` | Ready, waiting for delivery driver |
 | `en_route` | Driver is on the way |
