@@ -11,7 +11,13 @@ from custom_components.chickencartel import (
     async_setup_entry,
     async_unload_entry,
 )
-from custom_components.chickencartel.const import DOMAIN
+from custom_components.chickencartel.const import (
+    CONF_EMAIL_ENABLED,
+    CONF_EMAIL_PASSWORD,
+    CONF_EMAIL_SERVER,
+    CONF_EMAIL_USERNAME,
+    DOMAIN,
+)
 
 
 @pytest.fixture
@@ -79,6 +85,39 @@ class TestAsyncSetupEntry:
             # Verify coordinator was created with default polling interval
             call_args = mock_coordinator_class.call_args
             assert call_args[1]["polling_interval"] == 15
+
+    @pytest.mark.asyncio
+    async def test_email_monitor_stays_scheduled(self, mock_hass, mock_entry):
+        """Email monitoring keeps a listener so interval refreshes continue."""
+        mock_entry.data = {
+            **mock_entry.data,
+            CONF_EMAIL_ENABLED: True,
+            CONF_EMAIL_SERVER: "imap.example.com",
+            CONF_EMAIL_USERNAME: "user@example.com",
+            CONF_EMAIL_PASSWORD: "app-password",
+        }
+
+        with (
+            patch(
+                "custom_components.chickencartel.ChickenCartelCoordinator"
+            ) as mock_coordinator_class,
+            patch("custom_components.chickencartel.EmailMonitor") as monitor_class,
+        ):
+            coordinator = MagicMock()
+            coordinator.async_config_entry_first_refresh = AsyncMock()
+            mock_coordinator_class.return_value = coordinator
+
+            monitor = MagicMock()
+            monitor.async_config_entry_first_refresh = AsyncMock()
+            remove_listener = MagicMock()
+            monitor.async_add_listener.return_value = remove_listener
+            monitor_class.return_value = monitor
+
+            assert await async_setup_entry(mock_hass, mock_entry) is True
+
+        monitor.async_config_entry_first_refresh.assert_awaited_once()
+        monitor.async_add_listener.assert_called_once()
+        mock_entry.async_on_unload.assert_called_once_with(remove_listener)
 
 
 class TestAsyncUnloadEntry:

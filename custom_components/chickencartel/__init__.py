@@ -145,6 +145,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Start monitoring
         await email_monitor.async_config_entry_first_refresh()
 
+        # DataUpdateCoordinator only schedules interval refreshes while it has
+        # at least one listener. The email monitor has no entity of its own, so
+        # keep a no-op listener for the lifetime of this config entry.
+        entry.async_on_unload(email_monitor.async_add_listener(lambda: None))
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     # Register service if not already registered
