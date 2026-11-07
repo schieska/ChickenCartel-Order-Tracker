@@ -60,9 +60,9 @@ The integration includes **built-in email monitoring** - no need to install sepa
 
 That's it! The integration will automatically:
 - Find the newest matching Chicken Cartel order confirmation, even if it has already been read
-- Monitor your inbox for later order confirmations
+- Keep monitoring your inbox at the configured interval for later order confirmations
 - Extract order IDs from incoming emails
-- Update the tracker automatically when a new order is detected
+- Switch the tracker to the newest order automatically when a new confirmation is detected
 
 **Important - Gmail Setup:**
 1. **Enable 2-Step Verification** (if not already enabled):
